@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+data/raw/*.json
+data/processed/*.parquet
+
+# OS / editor cruft
+.DS_Store
+
+# Streamlit secrets (never commit your SAM.gov key)
+.streamlit/secrets.toml
