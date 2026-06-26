@@ -109,6 +109,43 @@ def test_design_and_manufacture_stays_strong_fit():
     assert "hardware supply/manufacturing" not in row["Why It Fits Butler"].lower()
 
 
+def test_new_manufacture_with_boilerplate_engineering_downgraded():
+    # Real-world miss: a DLA "new manufacture" spares buy whose text contains procurement
+    # boilerplate ("nonrecurring engineering costs", "supplier qualification"). Those words must
+    # NOT shield it from the downgrade -- the deliverable is a manufactured part, so it is C.
+    row = classify_notice(
+        notice(
+            title="CASE, COMBUSTION CHAMBER NSN 2840012620495 PN 9529M99G09",
+            description=(
+                "Sources sought for new manufacture of the item. Entails procurement/manufacture of "
+                "component parts, inspection, testing, packaging, and shipping. Nonrecurring "
+                "engineering costs may apply for supplier qualification."
+            ),
+            naicsCode="336412",
+            classificationCode="2840",
+            type="r",
+        ),
+        today=date(2026, 6, 23),
+    )
+    assert row["Fit Category"] == "C"
+    assert "hardware supply/manufacturing" in row["Why It Fits Butler"].lower()
+
+
+def test_part_supply_with_engineering_drawing_reference_downgraded():
+    # A bare part-supply buy that merely references a Government "engineering drawing" must still
+    # be downgraded -- referencing a drawing is not doing design work.
+    row = classify_notice(
+        notice(
+            title="F-16 RUDDER, AIRCRAFT",
+            description="2 each of NSN: 1560-01-077-1314. Cadmium finish per engineering drawing.",
+            naicsCode="336413",
+            classificationCode="1560",
+        ),
+        today=date(2026, 6, 23),
+    )
+    assert row["Fit Category"] == "C"
+
+
 def test_low_value_hardware_supply_not_promoted():
     # A pure supply buy that is otherwise below threshold stays D -- the downgrade only caps
     # A/B items at C, it never promotes junk up to C.

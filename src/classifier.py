@@ -79,6 +79,8 @@ MANUFACTURE_SUPPLY_TERMS = [
     "production and delivery",
     "manufacture of",
     "manufacturing of",
+    "new manufacture",
+    "remanufacture",
     "fabrication of",
     "production of",
     "furnish and deliver",
@@ -107,13 +109,26 @@ MANUFACTURE_SUPPLY_TERMS = [
 # Design/engineering/sustainment "work" verbs. If any of these are present, the notice
 # involves designing, redesigning, or otherwise engineering/supporting the hardware, which
 # is exactly Butler's lane — so it must NOT be treated as a pure supply/manufacturing buy.
+# NOTE: these must be design/engineering *work* signals, not procurement boilerplate.
+# Bare "engineering", "qualification", and "certification" are deliberately EXCLUDED because
+# pure new-manufacture solicitations routinely contain phrases like "nonrecurring engineering
+# costs", "supplier qualification", and "certificate of conformance" — those must not shield a
+# hardware-supply buy from the C downgrade. Genuine engineering work is captured by the more
+# specific multi-word phrases below.
 ENGINEERING_WORK_TERMS = [
     "design",
     "redesign",
     "re-design",
     "reverse engineering",
     "reverse-engineering",
-    "engineering",
+    "systems engineering",
+    "engineering services",
+    "engineering support",
+    "design engineering",
+    "manufacturing engineering",
+    "repair engineering",
+    "sustainment engineering",
+    "engineering analysis",
     "develop",
     "development",
     "r&d",
@@ -137,14 +152,11 @@ ENGINEERING_WORK_TERMS = [
     "prototyping",
     "integration",
     "installation",
-    "analysis",
-    "study",
-    "studies",
+    "failure analysis",
+    "trade study",
     "program management",
     "program support",
     "technical support",
-    "certification",
-    "qualification",
     "configuration management",
 ]
 
