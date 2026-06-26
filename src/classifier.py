@@ -1,12 +1,27 @@
 from __future__ import annotations
 
+import re
 from datetime import date, datetime
+from functools import lru_cache
 from typing import Any
 
 from config import APPROVED_NAICS, MAIN_COLUMNS, SECONDARY_NAICS
 from src.stage_classifier import classify_stage, notice_type_label
 from src.value_extractor import extract_contract_value
 from src.vehicle_classifier import detect_vehicle
+
+
+@lru_cache(maxsize=4096)
+def _term_pattern(term: str) -> re.Pattern[str]:
+    # Match a keyword only as a whole word/token (optionally pluralised), never as a
+    # substring buried inside another word. This stops false positives such as "cad"
+    # matching "cadmium" or "mbe" matching "chamber", which previously inflated the fit
+    # score of pure parts buys and made non-Butler work look like a match.
+    return re.compile(r"(?<![a-z0-9])" + re.escape(term) + r"s?(?![a-z0-9])")
+
+
+def has_term(term: str, text: str) -> bool:
+    return _term_pattern(term).search(text) is not None
 
 
 POSITIVE_GROUPS = [
@@ -263,12 +278,12 @@ def _score(text: str) -> tuple[int, list[str], list[str]]:
     positives: list[str] = []
     negatives: list[str] = []
     for points, terms in POSITIVE_GROUPS:
-        matched = [term for term in terms if term in text]
+        matched = [term for term in terms if has_term(term, text)]
         if matched:
             score += points
             positives.extend(matched[:3])
     for points, terms in NEGATIVE_GROUPS:
-        matched = [term for term in terms if term in text]
+        matched = [term for term in terms if has_term(term, text)]
         if matched:
             score += points
             negatives.extend(matched[:3])
@@ -347,12 +362,12 @@ def classify_notice(
     expired = isinstance(days_until_due, int) and days_until_due < 0
     inactive = str(status).lower() in {"inactive", "archived", "cancelled", "canceled", "deleted"}
     excluded_type = ptype in {"a", "g"}
-    hard_reject_terms = [term for term in HARD_REJECT if term in text]
-    secondary_generic = naics in SECONDARY_NAICS and not any(term in text for term in SECONDARY_CONNECTIONS)
-    navy_relevant = any(term in text for term in NAVY_RELEVANCE)
-    seaport_relevant = "seaport" in text and navy_relevant
-    manufacture_supply_terms = [term for term in MANUFACTURE_SUPPLY_TERMS if term in text]
-    has_engineering_work = any(term in text for term in ENGINEERING_WORK_TERMS)
+    hard_reject_terms = [term for term in HARD_REJECT if has_term(term, text)]
+    secondary_generic = naics in SECONDARY_NAICS and not any(has_term(term, text) for term in SECONDARY_CONNECTIONS)
+    navy_relevant = any(has_term(term, text) for term in NAVY_RELEVANCE)
+    seaport_relevant = has_term("seaport", text) and navy_relevant
+    manufacture_supply_terms = [term for term in MANUFACTURE_SUPPLY_TERMS if has_term(term, text)]
+    has_engineering_work = any(has_term(term, text) for term in ENGINEERING_WORK_TERMS)
     hardware_supply_no_design = bool(manufacture_supply_terms) and not has_engineering_work
 
     if expired:

@@ -146,6 +146,21 @@ def test_part_supply_with_engineering_drawing_reference_downgraded():
     assert row["Fit Category"] == "C"
 
 
+def test_keyword_matching_respects_word_boundaries():
+    # Keywords must match as whole tokens, not as substrings buried in unrelated words --
+    # "cadmium" must not count as CAD work, "chamber" must not count as MBE. This is what
+    # previously inflated pure parts buys so non-Butler work looked like a match.
+    from src.classifier import has_term
+
+    assert not has_term("cad", "cadmium plating per drawing")
+    assert not has_term("mbe", "combustion chamber housing")
+    assert not has_term("road", "engineering roadmap for the railroad")
+    # genuine whole-word (and simple plural) uses still match
+    assert has_term("cad", "cad and plm modeling tools")
+    assert has_term("mbe", "mbe and digital thread")
+    assert has_term("uav", "uavs and uas platforms")
+
+
 def test_low_value_hardware_supply_not_promoted():
     # A pure supply buy that is otherwise below threshold stays D -- the downgrade only caps
     # A/B items at C, it never promotes junk up to C.
