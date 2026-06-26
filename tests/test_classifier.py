@@ -53,3 +53,75 @@ def test_secondary_generic_it_rejected():
     )
     assert row["Fit Category"] == "D"
 
+
+def test_pure_hardware_manufacture_downgraded_to_c():
+    # Strong manufacturing/aerospace score but the scope is pure build-to-print fabrication
+    # with no design or engineering work -> Butler does not manufacture hardware -> downgrade to C.
+    row = classify_notice(
+        notice(
+            title="CNC machining and composites fabrication of airframe components",
+            description=(
+                "Build to print. Manufacture and deliver airframe parts in accordance with "
+                "Government-provided specifications. Off-the-shelf hardware where applicable."
+            ),
+            naicsCode="336413",
+            classificationCode="1560",
+        ),
+        today=date(2026, 6, 23),
+    )
+    assert row["Fit Category"] == "C"
+    assert row["Status"] == "Accepted"
+    assert "hardware supply/manufacturing" in row["Why It Fits Butler"].lower()
+
+
+def test_redesign_hardware_stays_strong_fit():
+    # Designing/redesigning hardware is squarely Butler's lane -> must remain a strong (A) fit.
+    row = classify_notice(
+        notice(
+            title="Redesign of airframe structural bracket",
+            description=(
+                "Systems engineering and design analysis to redesign aircraft structural hardware "
+                "and deliver an updated technical data package."
+            ),
+            naicsCode="541330",
+        ),
+        today=date(2026, 6, 23),
+    )
+    assert row["Fit Category"] == "A"
+    assert "hardware supply/manufacturing" not in row["Why It Fits Butler"].lower()
+
+
+def test_design_and_manufacture_stays_strong_fit():
+    # When design/engineering work is present alongside manufacturing language, the design
+    # content keeps it a strong fit -> the supply downgrade must NOT fire.
+    row = classify_notice(
+        notice(
+            title="Design and manufacture of aircraft test fixtures",
+            description=(
+                "Systems engineering, design, and redesign of aircraft tooling, including "
+                "manufacture of the resulting test fixtures."
+            ),
+            naicsCode="541330",
+        ),
+        today=date(2026, 6, 23),
+    )
+    assert row["Fit Category"] == "A"
+    assert "hardware supply/manufacturing" not in row["Why It Fits Butler"].lower()
+
+
+def test_low_value_hardware_supply_not_promoted():
+    # A pure supply buy that is otherwise below threshold stays D -- the downgrade only caps
+    # A/B items at C, it never promotes junk up to C.
+    row = classify_notice(
+        notice(
+            title="Procurement of commercial off-the-shelf bolts",
+            description="Supply of bolts. National stock number listed. Quantity of 5000.",
+            naicsCode="332722",
+            classificationCode="5305",
+            department="General Services Administration",
+            office="GSA",
+        ),
+        today=date(2026, 6, 23),
+    )
+    assert row["Fit Category"] == "D"
+

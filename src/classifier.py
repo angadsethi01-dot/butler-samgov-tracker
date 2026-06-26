@@ -59,6 +59,95 @@ HARD_REJECT = [
     "moving services",
 ]
 
+# Butler does not supply or manufacture physical hardware. Notices whose deliverable is
+# the production/supply of hardware (build-to-print, fabrication, parts supply, COTS, etc.)
+# are outside Butler's capabilities UNLESS they also involve designing or redesigning the
+# hardware. These two lists let the classifier tell the difference from the notice text.
+MANUFACTURE_SUPPLY_TERMS = [
+    "build to print",
+    "build-to-print",
+    "manufacture to print",
+    "manufactured to print",
+    "manufacture per",
+    "manufacture in accordance",
+    "manufacture and deliver",
+    "manufacture and supply",
+    "manufacture and delivery",
+    "fabricate and deliver",
+    "fabrication and delivery",
+    "produce and deliver",
+    "production and delivery",
+    "manufacture of",
+    "manufacturing of",
+    "fabrication of",
+    "production of",
+    "furnish and deliver",
+    "furnish and install",
+    "supply of",
+    "supplies of",
+    "procurement of",
+    "purchase of",
+    "acquisition of",
+    "spare parts",
+    "replacement parts",
+    "repair parts",
+    "spares",
+    "off-the-shelf",
+    "commercial off-the-shelf",
+    "commercial-off-the-shelf",
+    "cots",
+    "national stock number",
+    "nsn",
+    "hardware procurement",
+    "parts procurement",
+    "material procurement",
+    "quantity of",
+]
+
+# Design/engineering/sustainment "work" verbs. If any of these are present, the notice
+# involves designing, redesigning, or otherwise engineering/supporting the hardware, which
+# is exactly Butler's lane — so it must NOT be treated as a pure supply/manufacturing buy.
+ENGINEERING_WORK_TERMS = [
+    "design",
+    "redesign",
+    "re-design",
+    "reverse engineering",
+    "reverse-engineering",
+    "engineering",
+    "develop",
+    "development",
+    "r&d",
+    "research and development",
+    "modification",
+    "retrofit",
+    "upgrade",
+    "overhaul",
+    "repair",
+    "maintenance",
+    "sustainment",
+    "technical publication",
+    "technical manual",
+    "provisioning",
+    "logistics support analysis",
+    "maintenance planning",
+    "support equipment",
+    "test and evaluation",
+    "system safety",
+    "prototype",
+    "prototyping",
+    "integration",
+    "installation",
+    "analysis",
+    "study",
+    "studies",
+    "program management",
+    "program support",
+    "technical support",
+    "certification",
+    "qualification",
+    "configuration management",
+]
+
 NAVY_RELEVANCE = [
     "navair",
     "nawcad",
@@ -250,6 +339,9 @@ def classify_notice(
     secondary_generic = naics in SECONDARY_NAICS and not any(term in text for term in SECONDARY_CONNECTIONS)
     navy_relevant = any(term in text for term in NAVY_RELEVANCE)
     seaport_relevant = "seaport" in text and navy_relevant
+    manufacture_supply_terms = [term for term in MANUFACTURE_SUPPLY_TERMS if term in text]
+    has_engineering_work = any(term in text for term in ENGINEERING_WORK_TERMS)
+    hardware_supply_no_design = bool(manufacture_supply_terms) and not has_engineering_work
 
     if expired:
         fit = "D"
@@ -288,6 +380,13 @@ def classify_notice(
     if fit in {"A", "B"} and vehicle["has_vehicle_blocker"]:
         fit = "C"
 
+    # Butler designs/redesigns hardware but does not supply or manufacture it. A strong-fit
+    # notice whose scope is purely hardware supply/manufacture (with no design or engineering
+    # work) is downgraded to C — kept visible as a subcontract / competitive-intelligence lead
+    # rather than presented as a prime engineering fit.
+    if fit in {"A", "B"} and hardware_supply_no_design:
+        fit = "C"
+
     if fit == "A":
         why = "Direct match to Butler aerospace/defense engineering or sustainment capabilities."
     elif fit == "B":
@@ -301,6 +400,17 @@ def classify_notice(
         why = f"{why} Matched: {', '.join(positives[:8])}."
     if notice.get("_attachment_text"):
         why = f"{why} Attachment text was included in the screen."
+
+    if fit == "C" and hardware_supply_no_design:
+        why = (
+            f"{why} Scope reads as hardware supply/manufacturing with no clear design, "
+            f"redesign, or engineering work (matched: {', '.join(manufacture_supply_terms[:5])}), "
+            "so it is tracked as a subcontract/competitive-intelligence lead rather than a prime fit."
+        )
+        if not vehicle["Feasibility Concern"]:
+            vehicle["Feasibility Concern"] = (
+                "Hardware supply/manufacturing scope with no design or engineering work"
+            )
 
     if fit == "C" and vehicle["Recommended Next Step"] == "Add to tracker":
         vehicle["Recommended Next Step"] = "Possible subcontract lead"
