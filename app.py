@@ -42,7 +42,7 @@ DISPLAY_COLUMNS = [
 
 USER_OUTPUTS_DIR = PROJECT_ROOT.parent / "outputs"
 
-st.markdown(
+st.html(
     """
     <style>
       .stApp {
@@ -232,8 +232,7 @@ st.markdown(
         }
       }
     </style>
-    """,
-    unsafe_allow_html=True,
+    """
 )
 
 
