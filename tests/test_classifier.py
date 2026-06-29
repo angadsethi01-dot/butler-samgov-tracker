@@ -146,6 +146,64 @@ def test_part_supply_with_engineering_drawing_reference_downgraded():
     assert row["Fit Category"] == "C"
 
 
+def test_agency_name_alone_does_not_qualify():
+    # "DLA Aviation" in the buying-office name must not, by itself, push a notice into a fit
+    # tier. With no real Butler scope, a non-product, non-approved-NAICS notice stays D.
+    row = classify_notice(
+        notice(
+            title="Administrative and clerical support",
+            description="General administrative and clerical support services.",
+            department="DEPT OF DEFENSE.DEFENSE LOGISTICS AGENCY.DLA AVIATION",
+            office="DLA AVIATION",
+            naicsCode="561110",
+            classificationCode="R699",
+        ),
+        today=date(2026, 6, 23),
+    )
+    assert row["Fit Category"] == "D"
+
+
+def test_dla_aviation_parts_buy_classified_c():
+    # A DLA Aviation parts/supply buy (numeric Federal Supply Class PSC, approved aerospace
+    # NAICS, "see attached" scope with no engineering work) must land at C -- visible as a
+    # competitive-intelligence lead -- not inflated to A/B by its office name.
+    for title, naics, psc in [
+        ("16--TURBINE WHEEL,AIRCRAFT", "336411", "16"),
+        ("28--BRACKET ASSEMBLY,CA", "336412", "28"),
+        ("Support, Turbine Noz (1C)", "336412", "2840"),
+    ]:
+        row = classify_notice(
+            notice(
+                title=title,
+                description="See Attached Document.",
+                department="DEPT OF DEFENSE.DEFENSE LOGISTICS AGENCY.DLA AVIATION.DLA AV RICHMOND.DLA AVIATION",
+                office="DLA AVIATION",
+                naicsCode=naics,
+                classificationCode=psc,
+            ),
+            today=date(2026, 6, 23),
+        )
+        assert row["Fit Category"] == "C", f"{title} -> {row['Fit Category']}"
+        assert "hardware supply/manufacturing" in row["Why It Fits Butler"].lower()
+
+
+def test_engineering_services_with_letter_psc_stays_strong():
+    # A real engineering-services notice (letter PSC, engineering scope) must remain a strong
+    # fit -- the supply-PSC rule must only catch numeric Federal Supply Class codes.
+    row = classify_notice(
+        notice(
+            title="NAWCAD technical and engineering services",
+            description="Technical and engineering services, systems engineering, research and development.",
+            department="DEPT OF DEFENSE.DEPT OF THE NAVY.NAVAIR",
+            office="NAVAIR NAWCAD",
+            naicsCode="541330",
+            classificationCode="AC13",
+        ),
+        today=date(2026, 6, 23),
+    )
+    assert row["Fit Category"] == "A"
+
+
 def test_keyword_matching_respects_word_boundaries():
     # Keywords must match as whole tokens, not as substrings buried in unrelated words --
     # "cadmium" must not count as CAD work, "chamber" must not count as MBE. This is what

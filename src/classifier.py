@@ -24,15 +24,23 @@ def has_term(term: str, text: str) -> bool:
     return _term_pattern(term).search(text) is not None
 
 
+# Capability groups describe the actual WORK and are scored only against the opportunity
+# scope (title/description/attachment), never against the buying office's name. Otherwise a
+# notice qualifies just because it was issued by e.g. "DLA Aviation" ("aviation" = +5), which
+# is exactly how parts/supply buys with no Butler-relevant work were leaking in as fits.
 POSITIVE_GROUPS = [
     (5, ["aircraft", "aerospace", "aviation", "airframe", "propulsion", "avionics", "defense aircraft", "space vehicle", "missile", "uav", "uas"]),
     (5, ["engineering support", "systems engineering", "product development", "in-service engineering", "testing", "certification", "system safety"]),
     (4, ["manufacturing engineering", "tooling", "cad", "plm", "quality", "process planning", "bom", "fmea", "composites", "cnc"]),
     (4, ["aftermarket", "technical publication", "technical manual", "repair engineering", "provisioning", "logistics support analysis", "maintenance planning", "support equipment"]),
     (3, ["technical staffing", "staff augmentation", "engineering services"]),
-    (3, ["department of defense", "dod", "navy", "air force", "army", "space force", "nasa", "navair", "nawc", "navsea", "nswc", "nuwc", "navsup", "navwar", "dla aviation", "aflcmc", "darpa", "missile defense agency"]),
     (2, ["digital engineering", "mbse", "mbe", "digital manufacturing", "digital thread", "embedded systems", "ai/ml", "iot", "cloud", "cybersecurity"]),
 ]
+
+# Organization/agency boost. Per the build spec, the buying agency should "boost relevance,
+# not automatically include a result." It is scored against the full notice text (so it still
+# fires from the agency name) but is only worth +3 and can never reach a fit tier on its own.
+ORG_BOOST = (3, ["department of defense", "dod", "navy", "air force", "army", "space force", "nasa", "navair", "nawc", "navsea", "nswc", "nuwc", "navsup", "navwar", "dla aviation", "aflcmc", "darpa", "missile defense agency"])
 
 NEGATIVE_GROUPS = [
     (-7, ["hoteling", "conference", "catering", "food", "travel"]),
@@ -256,34 +264,50 @@ def response_deadline(notice: dict) -> date | None:
     )
 
 
+# Fields that describe the actual opportunity (what the work is). Capability scoring runs
+# against these only.
+SCOPE_FIELDS = [
+    "title",
+    "description",
+    "naicsCode",
+    "classificationCode",
+    "typeOfSetAsideDescription",
+    "solicitationNumber",
+    "_attachment_text",
+]
+
+# Fields that name the buying organization. Used for the org boost, NOT for capability scoring.
+AGENCY_FIELDS = ["fullParentPathName", "department", "subTier", "office"]
+
+
+def scope_text(notice: dict) -> str:
+    return " ".join(str(notice.get(field) or "") for field in SCOPE_FIELDS).lower()
+
+
 def combined_text(notice: dict) -> str:
-    fields = [
-        "title",
-        "description",
-        "fullParentPathName",
-        "department",
-        "subTier",
-        "office",
-        "naicsCode",
-        "classificationCode",
-        "typeOfSetAsideDescription",
-        "solicitationNumber",
-        "_attachment_text",
-    ]
+    fields = SCOPE_FIELDS[:1] + ["description", "fullParentPathName", "department", "subTier", "office"] + SCOPE_FIELDS[2:]
     return " ".join(str(notice.get(field) or "") for field in fields).lower()
 
 
-def _score(text: str) -> tuple[int, list[str], list[str]]:
+def _score(scope: str, org: str | None = None) -> tuple[int, list[str], list[str]]:
+    # Capability/negative groups are scored against the opportunity scope only; the agency
+    # name (in `org`) can contribute the small org boost but cannot qualify a notice by itself.
+    org = scope if org is None else org
     score = 0
     positives: list[str] = []
     negatives: list[str] = []
     for points, terms in POSITIVE_GROUPS:
-        matched = [term for term in terms if has_term(term, text)]
+        matched = [term for term in terms if has_term(term, scope)]
         if matched:
             score += points
             positives.extend(matched[:3])
+    org_points, org_terms = ORG_BOOST
+    org_matched = [term for term in org_terms if has_term(term, org)]
+    if org_matched:
+        score += org_points
+        positives.extend(org_matched[:3])
     for points, terms in NEGATIVE_GROUPS:
-        matched = [term for term in terms if has_term(term, text)]
+        matched = [term for term in terms if has_term(term, scope)]
         if matched:
             score += points
             negatives.extend(matched[:3])
@@ -335,6 +359,7 @@ def classify_notice(
 ) -> dict:
     today = today or date.today()
     text = combined_text(notice)
+    scope = scope_text(notice)
     title = _first(notice.get("title"))
     agency = _first(notice.get("department"), notice.get("fullParentPathName"), notice.get("agency"))
     office = _first(notice.get("office"), notice.get("subTier"), notice.get("organizationName"))
@@ -348,7 +373,7 @@ def classify_notice(
     stage = classify_stage(notice)
     notice_type = notice_type_label(ptype, _first(notice.get("noticeType"), notice.get("typeDescription")))
     vehicle = detect_vehicle(text, agency=agency, set_aside=set_aside)
-    score, positives, negatives = _score(text)
+    score, positives, negatives = _score(scope, text)
 
     if vehicle["has_low_feasibility"]:
         score -= 5
@@ -366,9 +391,13 @@ def classify_notice(
     secondary_generic = naics in SECONDARY_NAICS and not any(has_term(term, text) for term in SECONDARY_CONNECTIONS)
     navy_relevant = any(has_term(term, text) for term in NAVY_RELEVANCE)
     seaport_relevant = has_term("seaport", text) and navy_relevant
-    manufacture_supply_terms = [term for term in MANUFACTURE_SUPPLY_TERMS if has_term(term, text)]
-    has_engineering_work = any(has_term(term, text) for term in ENGINEERING_WORK_TERMS)
-    hardware_supply_no_design = bool(manufacture_supply_terms) and not has_engineering_work
+    manufacture_supply_terms = [term for term in MANUFACTURE_SUPPLY_TERMS if has_term(term, scope)]
+    has_engineering_work = any(has_term(term, scope) for term in ENGINEERING_WORK_TERMS)
+    # A purely-numeric PSC is a Federal Supply Class — i.e. a physical product/parts buy
+    # (services and engineering use letter-prefixed PSCs like R425, AC13, J016). Treat that as
+    # a hardware-supply signal even when the notice text only says "see attached document".
+    product_psc = bool(psc) and psc.strip()[:1].isdigit()
+    hardware_supply_no_design = (bool(manufacture_supply_terms) or product_psc) and not has_engineering_work
 
     if expired:
         fit = "D"
@@ -407,12 +436,18 @@ def classify_notice(
     if fit in {"A", "B"} and vehicle["has_vehicle_blocker"]:
         fit = "C"
 
-    # Butler designs/redesigns hardware but does not supply or manufacture it. A strong-fit
-    # notice whose scope is purely hardware supply/manufacture (with no design or engineering
-    # work) is downgraded to C — kept visible as a subcontract / competitive-intelligence lead
-    # rather than presented as a prime engineering fit.
-    if fit in {"A", "B"} and hardware_supply_no_design:
-        fit = "C"
+    # Butler designs/redesigns hardware but does not supply or manufacture it. A notice whose
+    # scope is purely hardware supply/manufacture (no design or engineering work) is capped at
+    # C if it would otherwise be a strong A/B fit, and — when it falls under an approved
+    # aerospace NAICS — floored up to C if it would otherwise drop out, so these stay visible as
+    # subcontract / competitive-intelligence leads rather than prime fits or hidden rejects.
+    hard_rejected = expired or inactive or excluded_type or bool(hard_reject_terms) or secondary_generic
+    if hardware_supply_no_design and not hard_rejected:
+        if fit in {"A", "B"}:
+            fit = "C"
+        elif fit == "D" and naics in APPROVED_NAICS:
+            fit = "C"
+            rejection = ""
 
     if fit == "A":
         why = "Direct match to Butler aerospace/defense engineering or sustainment capabilities."
@@ -429,9 +464,12 @@ def classify_notice(
         why = f"{why} Attachment text was included in the screen."
 
     if fit == "C" and hardware_supply_no_design:
+        supply_signals = list(manufacture_supply_terms)
+        if product_psc:
+            supply_signals.append(f"supply-class PSC {psc}")
         why = (
             f"{why} Scope reads as hardware supply/manufacturing with no clear design, "
-            f"redesign, or engineering work (matched: {', '.join(manufacture_supply_terms[:5])}), "
+            f"redesign, or engineering work (matched: {', '.join(supply_signals[:5])}), "
             "so it is tracked as a subcontract/competitive-intelligence lead rather than a prime fit."
         )
         if not vehicle["Feasibility Concern"]:
