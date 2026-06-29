@@ -129,6 +129,27 @@ MANUFACTURE_SUPPLY_TERMS = [
     "quantity of",
 ]
 
+AEROSPACE_PRODUCT_PSC_PREFIXES = (
+    "15",  # Aircraft and airframe structural components
+    "16",  # Aircraft components and accessories
+    "17",  # Aircraft launching, landing, and ground handling equipment
+    "18",  # Space vehicles
+    "28",  # Engines, turbines, and components
+)
+
+AEROSPACE_HARDWARE_TERMS = [
+    "aircraft",
+    "airframe",
+    "aviation",
+    "aerospace",
+    "avionics",
+    "propulsion",
+    "missile",
+    "space vehicle",
+    "uav",
+    "uas",
+]
+
 # Design/engineering/sustainment "work" verbs. If any of these are present, the notice
 # involves designing, redesigning, or otherwise engineering/supporting the hardware, which
 # is exactly Butler's lane — so it must NOT be treated as a pure supply/manufacturing buy.
@@ -351,6 +372,15 @@ def _sam_link(notice: dict) -> str:
     return f"https://sam.gov/opp/{notice_id}/view" if notice_id else ""
 
 
+def is_aerospace_hardware_relevant(naics: str, psc: str, scope: str) -> bool:
+    psc_clean = (psc or "").strip()
+    return (
+        naics in APPROVED_NAICS
+        or psc_clean.startswith(AEROSPACE_PRODUCT_PSC_PREFIXES)
+        or any(has_term(term, scope) for term in AEROSPACE_HARDWARE_TERMS)
+    )
+
+
 def classify_notice(
     notice: dict,
     search_source: str = "",
@@ -445,7 +475,7 @@ def classify_notice(
     if hardware_supply_no_design and not hard_rejected:
         if fit in {"A", "B"}:
             fit = "C"
-        elif fit == "D" and naics in APPROVED_NAICS:
+        elif fit == "D" and is_aerospace_hardware_relevant(naics, psc, scope):
             fit = "C"
             rejection = ""
 

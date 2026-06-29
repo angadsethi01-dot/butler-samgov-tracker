@@ -235,3 +235,36 @@ def test_low_value_hardware_supply_not_promoted():
     )
     assert row["Fit Category"] == "D"
 
+
+def test_aerospace_fsc_supply_without_approved_naics_stays_visible_as_c():
+    # Some SAM.gov part buys carry aerospace relevance through the Federal Supply Class
+    # instead of a clean approved NAICS. They are not prime fits, but should remain visible.
+    row = classify_notice(
+        notice(
+            title="16--TURBINE WHEEL,AIRCRAFT",
+            description="Supply of NSN aircraft turbine wheel. See attached document.",
+            naicsCode="332999",
+            classificationCode="1620",
+            department="DEPT OF DEFENSE.DEFENSE LOGISTICS AGENCY.DLA AVIATION",
+            office="DLA AVIATION",
+        ),
+        today=date(2026, 6, 23),
+    )
+    assert row["Fit Category"] == "C"
+    assert row["Status"] == "Accepted"
+    assert "hardware supply/manufacturing" in row["Why It Fits Butler"].lower()
+
+
+def test_non_aerospace_fsc_supply_without_design_stays_rejected():
+    row = classify_notice(
+        notice(
+            title="Supply of commercial bolts",
+            description="Supply of NSN bolts. Quantity of 5000.",
+            naicsCode="332722",
+            classificationCode="5305",
+            department="General Services Administration",
+            office="GSA",
+        ),
+        today=date(2026, 6, 23),
+    )
+    assert row["Fit Category"] == "D"
