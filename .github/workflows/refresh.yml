@@ -1,0 +1,55 @@
+name: Daily SAM.gov refresh
+
+# Runs the SAM.gov pull from GitHub's servers (a clean environment, NOT
+# Streamlit's throttled shared hosting), then commits the refreshed data back
+# to the repo. Streamlit Cloud auto-redeploys, so the dashboard shows fresh data
+# without anyone pasting a key.
+
+on:
+  schedule:
+    # 10:00 UTC daily (~06:00 US Eastern). SAM.gov's daily quota resets at
+    # 00:00 UTC, so by 10:00 UTC there is a full day's allowance available.
+    - cron: "0 10 * * *"
+  workflow_dispatch: {}   # allow manual "Run workflow" runs for testing
+
+permissions:
+  contents: write          # needed to commit the refreshed data back
+
+concurrency:
+  group: sam-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run SAM.gov refresh
+        env:
+          SAM_API_KEY: ${{ secrets.SAM_API_KEY }}
+        run: python refresh.py --mode daily --debug
+
+      - name: Guard — only commit if the pull returned data
+        run: python .github/scripts/check_refresh.py
+
+      - name: Commit refreshed data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/
+          if git diff --cached --quiet; then
+            echo "No data changes to commit."
+          else
+            git commit -m "Automated SAM.gov refresh ($(date -u +%Y-%m-%dT%H:%MZ))"
+            git push
+          fi
