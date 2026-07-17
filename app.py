@@ -9,8 +9,6 @@ import pandas as pd
 import streamlit as st
 
 from config import EXPORTS_DIR, MAIN_COLUMNS, PROJECT_ROOT
-from refresh import run_refresh
-from src.sam_client import invalid_api_key_reason
 from src.storage import load_display_data
 
 
@@ -478,7 +476,7 @@ timestamp = meta.get("last_refresh_timestamp", "")
 st.title("Butler Aerospace & Defense SAM.gov Opportunity Tracker")
 st.html(
     f"""<div class="status-line">
-      {len(main_df)} opportunities available to view. Next suggested refresh: {clean(next_refresh_text(timestamp))}
+      {len(main_df)} opportunities available to view. Refreshes automatically every day (~6:00 AM ET). Next update: {clean(next_refresh_text(timestamp))}
     </div>"""
 )
 
@@ -506,7 +504,7 @@ tabs = st.tabs(
         "Main Butler Opportunity Dashboard",
         "Rejected / Debug View",
         "Export Center",
-        "Refresh Log / Settings",
+        "Refresh Info",
     ]
 )
 
@@ -537,37 +535,29 @@ with tabs[2]:
         )
 
 with tabs[3]:
-    st.subheader("Run Refresh")
+    st.subheader("How this dashboard refreshes")
     st.html(
         """<div class="opp-card">
-          <div class="opp-title">Refresh from dashboard</div>
+          <div class="opp-title">Automatic daily refresh</div>
           <div class="opp-section">
-            <p>Paste your SAM.gov key below and run a daily refresh. The key is used for this refresh only and is not saved by the dashboard.</p>
+            <p>This dashboard updates itself &mdash; there is nothing to run or paste here.
+            An automated job pulls new opportunities from SAM.gov
+            <strong>every day at about 6:00&nbsp;AM US Eastern (10:00&nbsp;UTC)</strong>,
+            scores them for Butler fit, and saves the results. When it finishes, this page
+            reloads with the fresh data on its own within a few minutes.</p>
+            <p>The refresh runs on GitHub's servers rather than inside this dashboard, which
+            is what lets it reach SAM.gov reliably. (Running the pull from the dashboard
+            itself does not work &mdash; the shared hosting is throttled by SAM.gov, so an
+            in-app refresh would fail no matter whose key was used.)</p>
+            <p>If SAM.gov's daily request limit is reached mid-refresh, the job keeps the last
+            good results in place instead of blanking the dashboard, and tries again the next
+            day. So you may occasionally see a partial or slightly older set &mdash; but it
+            will never go empty.</p>
           </div>
         </div>"""
     )
-    sam_key = st.text_input("SAM.gov API key", type="password", key="dashboard_sam_api_key")
-    if st.button("Refresh now", key="dashboard_refresh_now"):
-        key_error = invalid_api_key_reason(sam_key)
-        if key_error:
-            st.error("Paste your actual SAM.gov API key. The example text is only a placeholder.")
-        else:
-            with st.spinner("Refreshing SAM.gov opportunities. This can take a few minutes."):
-                run_refresh(mode="daily", debug=False, api_key=sam_key.strip())
-            st.success("Refresh finished. Reloading dashboard.")
-            st.rerun()
 
-    st.html(
-        """<div class="opp-card">
-          <div class="opp-title">Terminal refresh option</div>
-          <div class="refresh-command">cd /Users/angadsethi/Documents/Codex/2026-06-23/files-mentioned-by-the-user-butler/butler_samgov_tracker
-source .venv/bin/activate
-export SAM_API_KEY="YOUR_KEY_HERE"
-python refresh.py --mode daily --debug</div>
-        </div>"""
-    )
-
-    st.subheader("Refresh Log")
+    st.subheader("Last refresh")
     render_refresh_meta(meta)
     render_refresh_log(refresh_log_df)
-    st.caption("You can also refresh from Terminal with `SAM_API_KEY` set. The dashboard does not store or display the key.")
+    st.caption("Refreshes run automatically once a day. The timestamp above shows when the data was last updated.")
