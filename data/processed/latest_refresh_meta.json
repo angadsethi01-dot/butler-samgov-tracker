@@ -1,13 +1,13 @@
 {
   "refresh_status": "Partial Refresh \u2014 Capacity Reached",
-  "last_refresh_timestamp": "2026-07-18T14:36:28",
-  "raw_results_pulled": 593,
-  "accepted_results": 351,
-  "rejected_results": 163,
-  "failed_queries": 14,
-  "skipped_queries": 39,
-  "api_calls_made": 50,
-  "capacity_used": "50/50",
+  "last_refresh_timestamp": "2026-07-19T14:39:59",
+  "raw_results_pulled": 551,
+  "accepted_results": 355,
+  "rejected_results": 161,
+  "failed_queries": 18,
+  "skipped_queries": 41,
+  "api_calls_made": 52,
+  "capacity_used": "52/50",
   "search_sources_completed": [
     "Primary NAICS 541330",
     "Primary NAICS 541715",
@@ -33,13 +33,11 @@
     "PSC 1510",
     "PSC 1520",
     "PSC 1560",
-    "PSC 1610",
-    "PSC 1620",
-    "PSC 1630",
-    "PSC 1680",
-    "PSC 1710"
+    "PSC 1610"
   ],
   "search_sources_skipped": [
+    "PSC 1840",
+    "High-priority org 097",
     "High-priority org 1700",
     "High-priority org 2100",
     "High-priority org 5700",
