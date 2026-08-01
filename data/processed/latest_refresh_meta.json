@@ -1,9 +1,9 @@
 {
   "refresh_status": "Partial Refresh \u2014 Capacity Reached",
-  "last_refresh_timestamp": "2026-07-31T11:58:52",
-  "raw_results_pulled": 468,
-  "accepted_results": 302,
-  "rejected_results": 144,
+  "last_refresh_timestamp": "2026-08-01T11:16:47",
+  "raw_results_pulled": 488,
+  "accepted_results": 310,
+  "rejected_results": 153,
   "failed_queries": 20,
   "skipped_queries": 45,
   "api_calls_made": 50,
