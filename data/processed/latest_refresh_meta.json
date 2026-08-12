@@ -1,11 +1,11 @@
 {
   "refresh_status": "Partial Refresh \u2014 Capacity Reached",
-  "last_refresh_timestamp": "2026-08-11T10:49:56",
-  "raw_results_pulled": 573,
-  "accepted_results": 385,
-  "rejected_results": 158,
-  "failed_queries": 22,
-  "skipped_queries": 45,
+  "last_refresh_timestamp": "2026-08-12T11:00:43",
+  "raw_results_pulled": 588,
+  "accepted_results": 366,
+  "rejected_results": 187,
+  "failed_queries": 20,
+  "skipped_queries": 43,
   "api_calls_made": 52,
   "capacity_used": "52/50",
   "search_sources_completed": [
@@ -27,11 +27,12 @@
     "PSC K",
     "PSC L",
     "PSC R425",
-    "PSC R706"
+    "PSC R706",
+    "PSC R707",
+    "PSC R408",
+    "PSC 1510"
   ],
   "search_sources_skipped": [
-    "PSC 1740",
-    "PSC 1810",
     "PSC 1820",
     "PSC 1830",
     "PSC 1840",
