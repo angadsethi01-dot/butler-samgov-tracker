@@ -1,13 +1,13 @@
 {
   "refresh_status": "Partial Refresh \u2014 Capacity Reached",
-  "last_refresh_timestamp": "2026-08-21T10:28:58",
-  "raw_results_pulled": 628,
-  "accepted_results": 476,
+  "last_refresh_timestamp": "2026-08-22T10:21:15",
+  "raw_results_pulled": 602,
+  "accepted_results": 450,
   "rejected_results": 152,
   "failed_queries": 26,
-  "skipped_queries": 50,
-  "api_calls_made": 51,
-  "capacity_used": "51/50",
+  "skipped_queries": 51,
+  "api_calls_made": 50,
+  "capacity_used": "50/50",
   "search_sources_completed": [
     "Primary NAICS 541330",
     "Primary NAICS 541715",
@@ -19,10 +19,10 @@
     "Primary NAICS 336419",
     "Primary NAICS 541380",
     "PSC A",
-    "PSC AC",
-    "PSC AD"
+    "PSC AC"
   ],
   "search_sources_skipped": [
+    "PSC 1610",
     "PSC 1620",
     "PSC 1630",
     "PSC 1680",
