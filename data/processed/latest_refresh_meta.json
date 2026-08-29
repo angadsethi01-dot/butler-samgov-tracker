@@ -1,13 +1,13 @@
 {
   "refresh_status": "Partial Refresh \u2014 Capacity Reached",
-  "last_refresh_timestamp": "2026-08-28T21:07:38",
-  "raw_results_pulled": 592,
-  "accepted_results": 373,
-  "rejected_results": 187,
-  "failed_queries": 22,
-  "skipped_queries": 45,
-  "api_calls_made": 52,
-  "capacity_used": "52/50",
+  "last_refresh_timestamp": "2026-08-29T14:58:05",
+  "raw_results_pulled": 529,
+  "accepted_results": 328,
+  "rejected_results": 170,
+  "failed_queries": 18,
+  "skipped_queries": 43,
+  "api_calls_made": 50,
+  "capacity_used": "50/50",
   "search_sources_completed": [
     "Primary NAICS 541330",
     "Primary NAICS 541715",
@@ -27,11 +27,13 @@
     "PSC K",
     "PSC L",
     "PSC R425",
-    "PSC R706"
+    "PSC R706",
+    "PSC R707",
+    "PSC R408",
+    "PSC 1510",
+    "PSC 1520"
   ],
   "search_sources_skipped": [
-    "PSC 1740",
-    "PSC 1810",
     "PSC 1820",
     "PSC 1830",
     "PSC 1840",
